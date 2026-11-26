@@ -16,7 +16,7 @@ import { sampleField, solveCG, splatNormals, upsample } from './poisson-solver.j
  * @param {Float32Array} positions 点坐标
  * @param {Float32Array} normals 单位法向，需外向一致
  * @param {{resolution?: number}} options resolution: 体素网格分辨率
- * @returns {{positions: Float32Array, triangles: number, iso: number, resolution: number}}
+ * @returns {{positions: Float32Array, indices: Uint32Array, triangles: number, iso: number, resolution: number}}
  */
 export function poissonReconstruct(positions, normals, { resolution = 48 } = {}) {
   const n = positions.length / 3;
@@ -70,6 +70,7 @@ export function poissonReconstruct(positions, normals, { resolution = 48 } = {})
   }
   const iso = sum / n;
 
+  // 行进四面体输出已索引化且统一朝外，可直接沿用其顶点与索引
   const mesh = marchingTetrahedra(field, resolution, origin, size, iso);
-  return { positions: mesh.positions, triangles: mesh.triangles, iso, resolution };
+  return { positions: mesh.positions, indices: mesh.indices, triangles: mesh.triangles, iso, resolution };
 }

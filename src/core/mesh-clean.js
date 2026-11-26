@@ -198,6 +198,8 @@ export function fixOrientation(positions, indices) {
     queue.length = 0;
     queue.push(seed);
     const component = [];
+    // 部件是否闭合：存在边界边或非流形边的部件无法用体积判断内外，应保持传播出的一致朝向
+    let closed = true;
 
     for (let head = 0; head < queue.length; head++) {
       const f = queue[head];
@@ -206,7 +208,10 @@ export function fixOrientation(positions, indices) {
         const x = out[f * 3 + k];
         const y = out[f * 3 + ((k + 1) % 3)];
         const rec = edges.get(edgeKey(x, y));
-        if (!rec || rec.length !== 2) continue;
+        if (!rec || rec.length !== 2) {
+          closed = false;
+          continue;
+        }
 
         const selfItem = rec[0].face === f ? rec[0] : rec[1];
         const other = rec[0].face === f ? rec[1] : rec[0];
@@ -220,17 +225,27 @@ export function fixOrientation(positions, indices) {
       }
     }
 
-    // 有符号体积：为负说明整个部件朝内，需要整体翻转
+    // 有符号体积：为负说明整个部件朝内，需要整体翻转。
+    // 以部件内一个顶点为参考点，避免大坐标（BIM 坐标）下各项巨大、靠相互抵消取符号而失真。
     let volume = 0;
+    const ref = component[0];
+    const rx = positions[out[ref * 3] * 3];
+    const ry = positions[out[ref * 3] * 3 + 1];
+    const rz = positions[out[ref * 3] * 3 + 2];
     for (const f of component) {
-      const [p0, p1, p2] = faceVertices(positions, out, f);
-      const cx = p1[1] * p2[2] - p1[2] * p2[1];
-      const cy = p1[2] * p2[0] - p1[0] * p2[2];
-      const cz = p1[0] * p2[1] - p1[1] * p2[0];
-      const v = (p0[0] * cx + p0[1] * cy + p0[2] * cz) / 6;
+      const ai = out[f * 3] * 3;
+      const bi = out[f * 3 + 1] * 3;
+      const ci = out[f * 3 + 2] * 3;
+      const ax = positions[ai] - rx, ay = positions[ai + 1] - ry, az = positions[ai + 2] - rz;
+      const bx = positions[bi] - rx, by = positions[bi + 1] - ry, bz = positions[bi + 2] - rz;
+      const cx = positions[ci] - rx, cy = positions[ci + 1] - ry, cz = positions[ci + 2] - rz;
+      const v =
+        ax * (by * cz - bz * cy) +
+        ay * (bz * cx - bx * cz) +
+        az * (bx * cy - by * cx);
       volume += flip[f] ? -v : v;
     }
-    if (volume < 0) {
+    if (closed && volume < 0) {
       for (const f of component) flip[f] ^= 1;
     }
   }

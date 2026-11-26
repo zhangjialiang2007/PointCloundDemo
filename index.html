@@ -3,18 +3,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>点云演示 · Point Cloud Demos</title>
+    <title>点云处理工作台 · Point Cloud Workbench</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="app">
-      <!-- 左侧：示例列表 -->
-      <aside class="sidebar">
-        <h1>点云演示</h1>
-        <nav id="demo-list"></nav>
-      </aside>
-      <!-- 右侧：3D 视口 + 参数面板 -->
-      <main class="stage">
+      <!-- 顶栏：品牌 + 当前页面 + 返回总览 -->
+      <header class="app-header">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <div class="brand-text">
+            <strong>点云处理工作台</strong>
+            <span id="crumb">总览</span>
+          </div>
+        </div>
+        <button id="back-home" class="ghost-button" type="button" hidden>← 返回总览</button>
+      </header>
+
+      <!-- 总览页：三个功能入口 -->
+      <section id="home" class="home">
+        <div class="home-hero">
+          <h1>三维点云处理链路</h1>
+          <p>法向估计 → 曲面重建 → 后处理，三个环节独立成页，数据以 PLY 流转。</p>
+        </div>
+        <div id="entry-grid" class="entry-grid"></div>
+        <div class="pipeline-note">
+          <span class="pipeline-step">法向估计<em>导出带法向点云</em></span>
+          <span class="pipeline-arrow">→</span>
+          <span class="pipeline-step">曲面重建<em>导出三角网格</em></span>
+          <span class="pipeline-arrow">→</span>
+          <span class="pipeline-step">后处理<em>清洗 / 修复 / 平滑 / 简化</em></span>
+        </div>
+      </section>
+
+      <!-- 功能页：3D 视口 + 参数面板 -->
+      <main id="stage" class="stage" hidden>
         <div id="viewport"></div>
         <div id="panel" class="panel"></div>
       </main>

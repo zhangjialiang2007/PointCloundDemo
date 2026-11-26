@@ -185,57 +185,67 @@ export function repairTopology({ positions, indices }, { fixNormals = true } = {
   }
 
   // ---- 3. 拆分非流形顶点（蝴蝶结）：把多片扇形拆成独立顶点 ----
+  // 拆分本身不会制造新的非流形结构，因此先一次性找出所有待拆顶点再批量处理，
+  // 避免「每拆一个顶点就重建整张拓扑表」导致的 O(顶点数 × 面数) 卡顿。
   let edges = rebuildEdgeFaces();
-  let vertexFaces = buildVertexFaces(new Uint32Array(idx), pos.length / 3);
 
-  for (let v = 0; v < vertexFaces.length; v++) {
-    const list = vertexFaces[v];
-    if (list.length <= 1) continue;
+  for (let pass = 0; pass < 4; pass++) {
+    const vertexFaces = buildVertexFaces(new Uint32Array(idx), pos.length / 3);
+    const pending = [];
 
-    // 按共享边把面片分成若干扇形
-    const visited = new Set();
-    const groups = [];
-    for (const seed of list) {
-      if (visited.has(seed)) continue;
-      const group = [];
-      visited.add(seed);
-      const stack = [seed];
-      while (stack.length) {
-        const f = stack.pop();
-        group.push(f);
-        for (let k = 0; k < 3; k++) {
-          const a = idx[f * 3 + k];
-          const b = idx[f * 3 + ((k + 1) % 3)];
-          if (a !== v && b !== v) continue;
-          const rec = edges.get(a < b ? `${a}_${b}` : `${b}_${a}`);
-          if (!rec || rec.faces.length !== 2) continue;
-          for (const nf of rec.faces) {
-            if (nf === f || visited.has(nf)) continue;
-            // 只处理仍以 v 为顶点的面片
-            const stillV = idx[nf * 3] === v || idx[nf * 3 + 1] === v || idx[nf * 3 + 2] === v;
-            if (!stillV) continue;
-            visited.add(nf);
-            stack.push(nf);
+    for (let v = 0; v < vertexFaces.length; v++) {
+      const list = vertexFaces[v];
+      if (list.length <= 1) continue;
+
+      // 按共享边把面片分成若干扇形
+      const visited = new Set();
+      const groups = [];
+      for (const seed of list) {
+        if (visited.has(seed)) continue;
+        const group = [];
+        visited.add(seed);
+        const stack = [seed];
+        while (stack.length) {
+          const f = stack.pop();
+          group.push(f);
+          for (let k = 0; k < 3; k++) {
+            const a = idx[f * 3 + k];
+            const b = idx[f * 3 + ((k + 1) % 3)];
+            if (a !== v && b !== v) continue;
+            const rec = edges.get(a < b ? `${a}_${b}` : `${b}_${a}`);
+            if (!rec || rec.faces.length !== 2) continue;
+            for (const nf of rec.faces) {
+              if (nf === f || visited.has(nf)) continue;
+              // 只处理仍以 v 为顶点的面片
+              const stillV = idx[nf * 3] === v || idx[nf * 3 + 1] === v || idx[nf * 3 + 2] === v;
+              if (!stillV) continue;
+              visited.add(nf);
+              stack.push(nf);
+            }
           }
         }
+        groups.push(group);
       }
-      groups.push(group);
+
+      if (groups.length > 1) pending.push({ v, groups });
     }
 
-    if (groups.length <= 1) continue;
+    if (pending.length === 0) break;
 
-    for (let g = 1; g < groups.length; g++) {
-      const nv = duplicateVertex(v);
-      for (const f of groups[g]) {
-        for (let k = 0; k < 3; k++) {
-          if (idx[f * 3 + k] === v) idx[f * 3 + k] = nv;
+    for (const { v, groups } of pending) {
+      for (let g = 1; g < groups.length; g++) {
+        const nv = duplicateVertex(v);
+        for (const f of groups[g]) {
+          for (let k = 0; k < 3; k++) {
+            if (idx[f * 3 + k] === v) idx[f * 3 + k] = nv;
+          }
         }
+        stats.splitVertices++;
       }
-      stats.splitVertices++;
     }
-    // 索引已变化，刷新拓扑结构
+
+    // 索引已变化，进入下一轮前刷新拓扑结构
     edges = rebuildEdgeFaces();
-    vertexFaces = buildVertexFaces(new Uint32Array(idx), pos.length / 3);
   }
 
   // ---- 4. 删除孤立顶点并压实索引 ----

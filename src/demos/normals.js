@@ -3,8 +3,9 @@ import { NORMAL_METHODS, estimateNormals, orientNormalsConsistently } from '../c
 import {
   SUPPORTED_EXT,
   buildPlyWithNormals,
-  downloadText,
+  buildXyzWithNormals,
   parsePointFile,
+  saveTextFile,
 } from '../core/point-file.js';
 import { addButton, addCheckbox, addColorBand, addHint, addSelect, addSlider } from '../core/ui.js';
 
@@ -15,7 +16,7 @@ import { addButton, addCheckbox, addColorBand, addHint, addSelect, addSlider } f
  * - 法向先沿 kNN 图传播统一方向，再按「法向朝外」整体定向（显示与导出一致）
  * - 每个点绘制垂直于法向的切平面面片，可叠加法向线；两者按法向与 +Y 的夹角在多色标色带内取色
  * - 重算时进度条提示并先隐藏旧法向
- * - 可将估计结果导出为带法向的 PLY，供泊松重建等下游流程使用
+ * - 可导出带法向的 PLY / XYZ，文件名、保存位置与类型都在系统保存对话框内选择
  */
 
 const LINE_STEP = 3; // 每隔若干个点绘制一根法向线，控制线段数量
@@ -366,15 +367,52 @@ export default {
       fillLineColors();
     };
 
-    /** 导出带法向的 PLY，可直接导入 MeshLab / Open3D 做泊松重建 */
-    const exportPly = () => {
+    /** 导出带法向的点云：文件名、位置与 PLY / XYZ 类型均在保存对话框内选择 */
+    const exportCloud = async () => {
       if (!positions || !normals) {
         exportInfo.textContent = '请先载入点云并完成法向估计';
         return;
       }
-      const text = buildPlyWithNormals(positions, normals, `normals ${method} k=${k}`);
-      downloadText(`pointcloud-normals-${method}.ply`, text, 'application/octet-stream');
-      exportInfo.textContent = `已导出 ${pointCount.toLocaleString()} 点（法向${outward ? '朝外' : '朝内'}）`;
+      try {
+        exportInfo.textContent = '请选择保存位置…';
+        const comment = `normals ${method} k=${k}`;
+        const res = await saveTextFile({
+          suggestedName: 'pointcloud-normals',
+          defaultExt: '.ply',
+          // 分阶段反馈，用户能看出卡在选位置、生成内容还是写入
+          onStage: (stage) => {
+            exportInfo.textContent =
+              stage === 'writing' ? '正在写入文件…' : stage === 'building' ? '正在生成文件内容…' : '请选择保存位置…';
+          },
+          formats: [
+            {
+              ext: '.ply',
+              description: 'PLY 点云（含法向）',
+              text: () => buildPlyWithNormals(positions, normals, comment),
+            },
+            {
+              ext: '.xyz',
+              description: 'XYZ 文本（含法向）',
+              text: () => buildXyzWithNormals(positions, normals, comment),
+            },
+            {
+              ext: '.txt',
+              description: 'TXT 文本（含法向）',
+              text: () => buildXyzWithNormals(positions, normals, comment),
+            },
+          ],
+        });
+        exportInfo.textContent = res.saved
+          ? `已导出 ${pointCount.toLocaleString()} 点（法向${outward ? '朝外' : '朝内'}）→ ${res.name}` +
+            (res.via === 'download'
+              ? res.reason
+                ? `（${res.reason}，已改存到浏览器下载目录）`
+                : '（已回退为浏览器下载，见下载目录）'
+              : '')
+          : '已取消导出';
+      } catch (err) {
+        exportInfo.textContent = `导出失败：${err.message || err}`;
+      }
     };
 
     // ---- 数据来源 ----
@@ -521,13 +559,16 @@ export default {
     panel.appendChild(progressBox);
 
     addButton(panel, {
-      label: '导出 PLY（含法向）',
-      onClick: exportPly,
+      label: '导出点云…',
+      onClick: exportCloud,
     });
 
     const sourceInfo = addHint(panel, '未加载数据：请选择或拖入点云文件');
     const hint = addHint(panel, '');
-    const exportInfo = addHint(panel, `可加载 ${SUPPORTED_EXT}；导出的 PLY 可直接用于泊松重建`);
+    const exportInfo = addHint(
+      panel,
+      `可加载 ${SUPPORTED_EXT}；导出时把扩展名写成 .ply / .xyz / .txt 即可切换格式`,
+    );
 
     return () => {
       clearTimeout(timer);
