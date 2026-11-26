@@ -92,7 +92,7 @@ body {
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 230px;
+  width: 250px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -124,11 +124,12 @@ body {
 
 .panel input[type="range"] {
   flex: 1.2;
+  min-width: 0; /* 允许滑块被压缩，避免行内溢出面板 */
   accent-color: var(--accent);
 }
 
 .panel .value {
-  min-width: 56px;
+  min-width: 46px;
   text-align: right;
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -138,6 +139,87 @@ body {
   margin-top: 8px;
   font-size: 12px;
   color: var(--text-dim);
+}
+
+/* 下拉框与整行按钮（示例通用控件） */
+.panel select {
+  flex: 1.8;
+  min-width: 0;
+  padding: 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #1d2a3d;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.panel input[type="color"] {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+/* 多色标色带：标签独占一行，色块均分第二行 */
+.panel .band-row {
+  flex-wrap: wrap;
+}
+
+.panel .band-group {
+  display: flex;
+  flex: 1 1 100%;
+  gap: 6px;
+}
+
+.panel .band-group input[type="color"] {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+/* 重算进度条（模拟） */
+.panel .progress {
+  height: 4px;
+  margin: 4px 0 6px;
+  border-radius: 2px;
+  background: #1d2a3d;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.panel .progress.active {
+  opacity: 1;
+}
+
+.panel .progress-fill {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.38s ease-out;
+}
+
+.panel-button {
+  width: 100%;
+  padding: 7px 10px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  border: 1px solid #2c4a72;
+  border-radius: 6px;
+  background: #1d2a3d;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.panel-button:hover {
+  background: #24405f;
 }
 
 .empty {

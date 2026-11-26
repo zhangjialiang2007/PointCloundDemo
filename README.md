@@ -20,9 +20,10 @@ src/
   style.css             整体样式
   core/
     viewer.js           PointCloudViewer：场景/相机/控制器/渲染循环封装
-    generators.js       程序化点云：球面、地形、起伏球、按高度着色
-    ui.js               参数面板控件（滑块、复选、提示）
-    normals.js          k 邻域 PCA 法向估计（网格索引 + Jacobi 特征分解）
+    generators.js       程序化点云：起伏球
+    ui.js               参数面板控件（滑块、复选、下拉、按钮、提示）
+    normals.js          法向估计：PCA / RANSAC / ROBPCA(MCD) / Hough / 邻域自适应 / 漂移邻域
+    point-file.js       点云文件读写：PLY/PCD/XYZ 解析、导出带法向 PLY
     poisson.js          泊松曲面重建主流程
     poisson-solver.js   法向散布、散度、共轭梯度求解、上采样
     marching-tet.js     行进四面体等值面提取
@@ -34,16 +35,19 @@ src/
     mesh-topology.js    拓扑统计与流形修复（拆分非流形边/顶点）
   demos/
     index.js            示例注册表
-    sphere.js           示例：球面点云
-    terrain.js          示例：地形点云高度着色
-    normals.js          示例：PCA 法向估计
+    normals.js          示例：法向估计（含点云加载与 PLY 导出）
     poisson.js          示例：泊松曲面重建
     mesh-clean.js       示例：面片清洗
     mesh-smooth.js      示例：网格平滑
     mesh-simplify.js    示例：网格简化
     mesh-topology.js    示例：修复拓扑
-    load-file.js        示例：拖拽加载 PLY / PCD / XYZ 文件
+data/
+  normals-terrain.xyz   起伏地形点云（原 PCA 示例程序化生成，40000 点，可手动拖入法向示例）
+  point_cloud.ply       内置测试数据：带噪声与离群点的球面点云
 ```
+
+法向估计示例默认不加载任何数据，可通过「选择点云文件…」或直接拖入本地 PLY / PCD / XYZ 文件；
+估计完成后通过「导出 PLY（含法向）」输出带法向点云，可直接用于泊松重建。
 
 ## 新增示例
 
@@ -70,4 +74,4 @@ export default {
 
 `viewer` 提供 `setPoints / setPointSize / fitToPoints / setHelpersVisible / disposePoints`；
 网格类示例另有 `setMesh / setMeshWireframe / setMeshVisible / fitToMesh / disposeMesh`；
-`panel` 为参数面板容器，可配合 `core/ui.js` 的 `addSlider`、`addCheckbox`、`addHint` 使用。
+`panel` 为参数面板容器，可配合 `core/ui.js` 的 `addSlider`、`addCheckbox`、`addSelect`、`addButton`、`addHint` 使用。
