@@ -19,10 +19,13 @@ export function faceVertices(positions, indices, f) {
 
 /**
  * 退化面片检测。
- * 判据一：面积 < 平均面积 × areaRatio（面积趋近 0）；
- * 判据二：面积 / 最长边² < aspectMin（等边三角形为 0.433，越小越扁长）。
+ * 判据零（始终生效）：三个顶点索引有重复，面片无几何意义；
+ * 判据一（areaRatio > 0 时生效）：面积 < 平均面积 × areaRatio；
+ * 判据二（aspectMin > 0 时生效）：面积 / 最长边² < aspectMin（等边三角形为 0.433，越小越扁长）。
+ * 默认两个阈值都为 0，即只删索引重复的无效面：重建/扫描网格里的细长三角是合法几何，
+ * 按面积或长宽比批量剔除会在闭合曲面上打洞，甚至把网格剪成多块。
  */
-export function findDegenerateFaces(positions, indices, { areaRatio = 0.02, aspectMin = 0.06 } = {}) {
+export function findDegenerateFaces(positions, indices, { areaRatio = 0, aspectMin = 0 } = {}) {
   const areas = computeFaceAreas(positions, indices);
   const F = areas.length;
   let sum = 0;
@@ -31,10 +34,18 @@ export function findDegenerateFaces(positions, indices, { areaRatio = 0.02, aspe
 
   const bad = new Set();
   for (let f = 0; f < F; f++) {
-    if (areas[f] < eps) {
+    const a = indices[f * 3];
+    const b = indices[f * 3 + 1];
+    const c = indices[f * 3 + 2];
+    if (a === b || b === c || c === a) {
       bad.add(f);
       continue;
     }
+    if (areaRatio > 0 && areas[f] < eps) {
+      bad.add(f);
+      continue;
+    }
+    if (aspectMin <= 0) continue;
     const [p0, p1, p2] = faceVertices(positions, indices, f);
     const longest = Math.max(
       Math.hypot(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]),
@@ -277,7 +288,7 @@ export function removeFaces(indices, removeSet) {
  */
 export function cleanMesh(
   { positions, indices },
-  { areaRatio = 0.02, aspectMin = 0.06, removeSelfIntersect = true, fixNormals = true } = {},
+  { areaRatio = 0, aspectMin = 0, removeSelfIntersect = true, fixNormals = true } = {},
 ) {
   const facesIn = indices.length / 3;
   const degenerate = findDegenerateFaces(positions, indices, { areaRatio, aspectMin });

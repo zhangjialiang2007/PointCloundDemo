@@ -25,8 +25,9 @@ export default {
     let doSmooth = true;
     let doSimplify = true;
 
-    let areaRatio = 0.02; // 退化面面积阈值（相对平均面积）
-    let removeSelfIntersect = true;
+    let areaRatio = 0; // 退化面面积阈值（相对平均面积，0 = 关闭）
+    let aspectMin = 0; // 薄片判据：面积/最长边²，0 = 关闭
+    let removeSelfIntersect = false; // 自交剔除会删面，重建网格默认关闭以保持闭合
     let iterations = 6;
     let featureAngle = 45;
     let taubin = false;
@@ -61,7 +62,7 @@ export default {
       stages = [{ id: 'source', label: '原始网格', mesh: source }];
 
       if (doClean) {
-        const r = cleanMesh(current, { areaRatio, removeSelfIntersect });
+        const r = cleanMesh(current, { areaRatio, aspectMin, removeSelfIntersect });
         current = r.mesh;
         log.push(
           `① 清洗：面 ${r.stats.facesIn} → ${r.stats.facesOut}` +
@@ -240,14 +241,25 @@ export default {
       },
     });
     addSlider(panel, {
-      label: '退化面阈值',
-      min: 0.005,
-      max: 0.05,
-      step: 0.005,
+      label: '退化面面积阈值',
+      min: 0,
+      max: 0.01,
+      step: 0.0002,
       value: areaRatio,
-      format: (v) => `${(v * 100).toFixed(1)}%`,
+      format: (v) => (v === 0 ? '关闭' : `${(v * 100).toFixed(2)}%`),
       onInput: (v) => {
         areaRatio = v;
+      },
+    });
+    addSlider(panel, {
+      label: '薄片长宽比阈值',
+      min: 0,
+      max: 0.1,
+      step: 0.005,
+      value: aspectMin,
+      format: (v) => (v === 0 ? '关闭' : v.toFixed(3)),
+      onInput: (v) => {
+        aspectMin = v;
       },
     });
     addCheckbox(panel, {
@@ -257,6 +269,7 @@ export default {
         removeSelfIntersect = v;
       },
     });
+    addHint(panel, '默认只删索引重复的无效面；细长三角是合法几何，调高阈值会在曲面上打洞');
 
     addCheckbox(panel, {
       label: '② 拓扑修复',
